@@ -67,19 +67,6 @@ cd build && ./quick_test && ./dart_benchmark
 cd build && ./dart_benchmark
 ```
 
-## Results
-
-Results are saved in `results/` directory.
-
-## Performance
-
-Measured on NVIDIA RTX A6000:
-
-| Configuration | Redundancy | Speedup | Overhead |
-|--------------|-----------|---------|----------|
-| 1024 × 10K  | 50%  | 2.0x | 0.22% |
-| 4096 × 100K | 60-80% | 2.5-5.0x | 0.11% |
-
 ## Directory Structure
 
 ```
@@ -100,10 +87,6 @@ DART-Release/
 export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 ```
-
-**0% redundancy rate:**
-- Increase simulation cycles (≥100K recommended)
-- Decrease detection interval (try 100)
 
 ## License
 
