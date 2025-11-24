@@ -55,39 +55,6 @@ Or run custom experiment:
 
 Parameters: `[stimuli] [cycles] [detection_interval] [roi_threshold]`
 
-## Typical Workflow
-
-```bash
-# Standard 1024 testbenches
-./scripts/build.sh
-cd build && ./quick_test && ./dart_benchmark
-
-# Large-scale 4096 testbenches
-./scripts/build.sh --testbenches 4096 --threads 512
-cd build && ./dart_benchmark
-```
-
-## Directory Structure
-
-```
-DART-Release/
-├── hw_small/          # NVDLA Verilog design
-│   └── vmod/          # Hardware modules
-├── traces/            # Testbench trace files
-├── src/dart/          # DART core library
-├── include/dart/      # API headers
-├── scripts/           # Build and run scripts
-└── build/             # Build output (generated)
-```
-
-## Troubleshooting
-
-**Build fails with "nvcc not found":**
-```bash
-export PATH=/usr/local/cuda/bin:$PATH
-export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
-```
-
 ## License
 
 MIT License
