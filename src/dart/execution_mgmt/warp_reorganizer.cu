@@ -10,16 +10,16 @@
 namespace dart {
 
 // ============================================================================
-// GPU Kernel: 计算PathSig (Equation 4)
+// GPU Kernel: Compute PathSig (Equation 4)
 // ============================================================================
 
 __global__ void ComputePathSignaturesKernel(
-    const uint32_t* stimulus_ids,           // 输入：代表刺激ID列表
+    const uint32_t* stimulus_ids,           // Input: representative stimulus ID list
     uint32_t num_stimuli,
-    const PathSignatureFeatures* ps_dataset, // 预编译的PS数据集
-    const uint32_t* branch_history,         // H(si): 每个刺激的分支历史
+    const PathSignatureFeatures* ps_dataset, // Precompiled PS dataset
+    const uint32_t* branch_history,         // H(si): branch history for each stimulus
     uint32_t detection_node_id,
-    RuntimePathSignature* output_sigs       // 输出：计算的签名
+    RuntimePathSignature* output_sigs       // Output: computed signatures
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= num_stimuli) return;
@@ -27,38 +27,38 @@ __global__ void ComputePathSignaturesKernel(
     uint32_t stim_id = stimulus_ids[idx];
     const PathSignatureFeatures& ps = ps_dataset[detection_node_id];
 
-    // 实现 PathSig(v, si) = Hash(P(v), L(v), H(si))
+    // Implement PathSig(v, si) = Hash(P(v), L(v), H(si))
     uint64_t hash = 0x123456789ABCDEF0ULL;
 
-    // 1. Hash P(v): 前驱节点签名集合
+    // 1. Hash P(v): predecessor node signature set
     for (int i = 0; i < ps.num_predecessors; ++i) {
         uint64_t pred_sig = ps.predecessor_signatures[i];
         hash ^= pred_sig;
-        hash *= 0xc6a4a7935bd1e995ULL;  // MurmurHash风格
+        hash *= 0xc6a4a7935bd1e995ULL;  // MurmurHash style
         hash ^= hash >> 47;
     }
 
-    // 2. Hash L(v): 拓扑层级
+    // 2. Hash L(v): topological level
     uint64_t level = ps.topological_level;
     hash ^= level;
     hash *= 0x87c37b91114253d5ULL;
     hash ^= hash >> 33;
 
-    // 3. Hash H(si): 刺激的控制流分支历史
-    // 分支历史编码：记录该刺激在关键分支点的选择
+    // 3. Hash H(si): control flow branch history of stimulus
+    // Branch history encoding: records stimulus choices at critical branch points
     uint32_t branch_bits = branch_history[stim_id];
     hash ^= branch_bits;
     hash *= 0xff51afd7ed558ccdULL;
     hash ^= hash >> 33;
 
-    // 输出计算结果
+    // Output computed results
     output_sigs[idx].signature = hash;
     output_sigs[idx].stimulus_id = stim_id;
     output_sigs[idx].detection_node = detection_node_id;
 }
 
 // ============================================================================
-// Device Function: 分支历史追踪
+// Device Function: Branch history tracking
 // ============================================================================
 
 __device__ void RecordBranchHistory(
@@ -67,36 +67,36 @@ __device__ void RecordBranchHistory(
     bool branch_taken,
     uint32_t* branch_history
 ) {
-    // 使用位向量记录分支选择
-    // 每个控制流节点占1位，记录true/false
+    // Use bit vector to record branch choices
+    // Each control flow node occupies 1 bit, recording true/false
     uint32_t bit_pos = node_id % 32;
 
     if (branch_taken) {
         atomicOr(&branch_history[stim_id], 1U << bit_pos);
     }
-    // false的情况保持0，无需操作
+    // For false case, keep 0, no operation needed
 }
 
 // ============================================================================
-// GPU Kernel: Warp重组 - 压缩代表刺激
+// GPU Kernel: Warp reorganization - Compact representative stimuli
 // ============================================================================
 
 __global__ void CompactRepresentativesKernel(
     const uint32_t* match_table,
     const uint64_t* path_signatures,
     uint32_t num_stimuli,
-    uint32_t* compacted_indices,     // 输出：压缩后的索引映射
-    uint32_t* compacted_count        // 输出：压缩后的数量
+    uint32_t* compacted_indices,     // Output: compacted index mapping
+    uint32_t* compacted_count        // Output: compacted count
 ) {
     __shared__ uint32_t warp_offset;
 
     uint32_t tid = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t lane_id = threadIdx.x % 32;
 
-    // 判断当前刺激是否为代表
+    // Check if current stimulus is a representative
     bool is_representative = (tid < num_stimuli) && (match_table[tid] == tid);
 
-    // Warp内扫描压缩
+    // Warp-level scan and compaction
     uint32_t warp_mask = __ballot_sync(0xFFFFFFFF, is_representative);
     uint32_t prefix = __popc(warp_mask & ((1U << lane_id) - 1));
 
@@ -112,7 +112,7 @@ __global__ void CompactRepresentativesKernel(
 }
 
 // ============================================================================
-// GPU Kernel: 应用warp分配
+// GPU Kernel: Apply warp assignment
 // ============================================================================
 
 __global__ void ApplyWarpAssignmentKernel(
@@ -129,7 +129,7 @@ __global__ void ApplyWarpAssignmentKernel(
     uint32_t old_pos = old_indices[idx];
     uint32_t new_pos = new_assignment[idx];
 
-    // 复制状态数据到新位置
+    // Copy state data to new position
     char* src = ((char*)state_data) + old_pos * state_size;
     char* dst = ((char*)output_state_data) + new_pos * state_size;
 
@@ -139,7 +139,7 @@ __global__ void ApplyWarpAssignmentKernel(
 }
 
 // ============================================================================
-// GPU Kernel: 重建follower状态
+// GPU Kernel: Reconstruct follower states
 // ============================================================================
 
 __global__ void ReconstructFollowerStatesKernel(
@@ -152,10 +152,10 @@ __global__ void ReconstructFollowerStatesKernel(
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= num_stimuli) return;
 
-    // 找到该刺激的代表
+    // Find the representative for this stimulus
     uint32_t rep_id = representative_map[idx];
 
-    // 从代表复制状态
+    // Copy state from representative
     const char* src = ((const char*)representative_states) + rep_id * state_size;
     char* dst = ((char*)all_states) + idx * state_size;
 
@@ -174,10 +174,10 @@ void PathSignatureSorter::SortByPathSignature(
 ) {
     if (signatures.empty()) return;
 
-    // 1. 将数据传到GPU
+    // 1. Transfer data to GPU
     thrust::device_vector<RuntimePathSignature> d_sigs = signatures;
 
-    // 2. 按signature字段排序（LSH保证相似路径有相似哈希值）
+    // 2. Sort by signature field (LSH ensures similar paths have similar hash values)
     thrust::sort(
         thrust::cuda::par.on(stream),
         d_sigs.begin(), d_sigs.end(),
@@ -187,7 +187,7 @@ void PathSignatureSorter::SortByPathSignature(
         }
     );
 
-    // 3. 复制回主机
+    // 3. Copy back to host
     thrust::copy(d_sigs.begin(), d_sigs.end(), signatures.begin());
 }
 
@@ -196,8 +196,8 @@ void PathSignatureSorter::RemapWarps(
     uint32_t warp_size,
     std::vector<uint32_t>& new_warp_assignment
 ) {
-    // 相似的PathSig会被排在一起
-    // 直接按顺序分配到warp中，自然实现内存访问局部性
+    // Similar PathSigs will be grouped together
+    // Directly assign to warps in order, naturally achieving memory access locality
     for (size_t i = 0; i < sorted_sigs.size(); ++i) {
         uint32_t stim_id = sorted_sigs[i].stimulus_id;
         uint32_t warp_id = i / warp_size;
@@ -234,16 +234,16 @@ void WarpReorganizer::Initialize(
 ) {
     max_stimuli_ = max_stimuli;
 
-    // 1. 分配并传输PS数据集到GPU
+    // 1. Allocate and transfer PS dataset to GPU
     if (!ps_dataset.empty()) {
         size_t dataset_size = ps_dataset.size() * sizeof(PathSignatureFeatures);
         cudaMalloc(&d_ps_dataset_, dataset_size);
 
-        // 转换为数组格式并拷贝
+        // Convert to array format and copy
         std::vector<PathSignatureFeatures> ps_array;
         ps_array.reserve(ps_dataset.size());
 
-        // 按node_id排序以便索引访问
+        // Sort by node_id for indexed access
         for (const auto& [node_id, features] : ps_dataset) {
             ps_array.push_back(features);
         }
@@ -252,7 +252,7 @@ void WarpReorganizer::Initialize(
                    cudaMemcpyHostToDevice);
     }
 
-    // 2. 分配分支历史缓冲区
+    // 2. Allocate branch history buffer
     cudaMalloc(&d_branch_history_, max_stimuli_ * sizeof(uint32_t));
     cudaMemset(d_branch_history_, 0, max_stimuli_ * sizeof(uint32_t));
 
@@ -274,7 +274,7 @@ std::vector<uint32_t> WarpReorganizer::Reorganize(
         return std::vector<uint32_t>();
     }
 
-    // 1. 计算每个代表刺激的PathSig
+    // 1. Compute PathSig for each representative stimulus
     RuntimePathSignature* d_sigs;
     cudaMalloc(&d_sigs, num_reps * sizeof(RuntimePathSignature));
 
@@ -297,7 +297,7 @@ std::vector<uint32_t> WarpReorganizer::Reorganize(
 
     cudaStreamSynchronize(stream);
 
-    // 2. 复制PathSig到主机并排序
+    // 2. Copy PathSig to host and sort
     std::vector<RuntimePathSignature> h_sigs(num_reps);
     cudaMemcpy(h_sigs.data(), d_sigs,
                num_reps * sizeof(RuntimePathSignature),
@@ -305,7 +305,7 @@ std::vector<uint32_t> WarpReorganizer::Reorganize(
 
     sorter_.SortByPathSignature(h_sigs, stream);
 
-    // 3. 基于排序结果重新分配warp
+    // 3. Reassign warps based on sorted results
     std::vector<uint32_t> new_assignment(num_reps);
     sorter_.RemapWarps(h_sigs, 32, new_assignment);
 
@@ -328,7 +328,7 @@ void WarpReorganizer::ClearBranchHistory() {
 BatchOverlapManager::BatchOverlapManager(uint32_t max_concurrent_batches)
     : max_concurrent_batches_(max_concurrent_batches)
 {
-    // 初始化空闲SM ID队列
+    // Initialize free SM ID queue
     for (uint32_t i = 0; i < max_concurrent_batches_; ++i) {
         free_sm_ids_.push(i);
     }
@@ -343,7 +343,7 @@ void BatchOverlapManager::LaunchBatch(
     uint32_t num_stimuli,
     void (*kernel_launcher)(uint32_t, cudaStream_t)
 ) {
-    // 等待有空闲的SM
+    // Wait for free SM
     if (free_sm_ids_.empty()) {
         WaitForBatchCompletion();
     }
@@ -355,10 +355,10 @@ void BatchOverlapManager::LaunchBatch(
     cudaStreamCreate(&info.stream);
     cudaEventCreate(&info.completion_event);
 
-    // 启动kernel
+    // Launch kernel
     kernel_launcher(batch_id, info.stream);
 
-    // 记录完成事件
+    // Record completion event
     cudaEventRecord(info.completion_event, info.stream);
 
     active_batches_.push_back(info);
@@ -367,11 +367,11 @@ void BatchOverlapManager::LaunchBatch(
 void BatchOverlapManager::WaitForBatchCompletion() {
     if (active_batches_.empty()) return;
 
-    // 检查最早的批次
+    // Check earliest batch
     auto& batch = active_batches_.front();
     cudaEventSynchronize(batch.completion_event);
 
-    // 释放资源
+    // Release resources
     cudaStreamDestroy(batch.stream);
     cudaEventDestroy(batch.completion_event);
     free_sm_ids_.push(batch.batch_id);
@@ -398,7 +398,7 @@ float ROICalculator::ComputeROI(
     float benefit = EstimateSavedComputations(merges, remaining_cycles);
     float cost = EstimateReorganizationCost(current_active, reorganization_overhead_cycles);
 
-    if (cost < 1e-6f) return 0.0f;  // 避免除零
+    if (cost < 1e-6f) return 0.0f;  // Avoid division by zero
 
     return benefit / cost;
 }
@@ -407,9 +407,9 @@ float ROICalculator::EstimateSavedComputations(
     const AccumulatedMergeState& merges,
     uint32_t remaining_cycles
 ) {
-    // Benefit: 节省的计算量
-    // 假设每个周期每个刺激的计算成本为1单位
-    // 合并后节省 = 已合并数 × 剩余周期数
+    // Benefit: saved computation amount
+    // Assume computation cost per stimulus per cycle is 1 unit
+    // Savings after merging = merged count × remaining cycles
     return static_cast<float>(merges.total_merged * remaining_cycles);
 }
 
@@ -417,8 +417,8 @@ float ROICalculator::EstimateReorganizationCost(
     uint32_t current_active,
     float overhead_per_stimulus
 ) {
-    // Cost: 重组开销（周期数）
-    // 假设每个活跃刺激的重组成本是固定的
+    // Cost: reorganization overhead (in cycles)
+    // Assume reorganization cost per active stimulus is fixed
     return overhead_per_stimulus * current_active;
 }
 

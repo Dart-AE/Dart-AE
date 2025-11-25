@@ -8,9 +8,9 @@
 
 namespace dart {
 
-// uint128_t 和 Fingerprint 已在 dart_config.hpp 中定义
+// uint128_t and Fingerprint are already defined in dart_config.hpp
 
-// CUDA Kernel函数声明
+// CUDA Kernel function declarations
 __device__ uint128_t ComputeFingerprint(
     const uint32_t* state_vector,
     const uint32_t* critical_regs,
@@ -25,9 +25,9 @@ __global__ void FingerprintMatchingKernel(
     uint32_t state_size,
     uint32_t num_stimuli,
     uint32_t detection_node_id,
-    uint128_t* fingerprints,            // 输出：每个刺激的指纹
-    uint32_t* match_table,              // 输出：匹配表 [num_stimuli]
-    uint32_t* merge_count               // 输出：合并计数
+    uint128_t* fingerprints,            // Output: fingerprint for each stimulus
+    uint32_t* match_table,              // Output: match table [num_stimuli]
+    uint32_t* merge_count               // Output: merge count
 );
 
 __global__ void ValidateCriticalRegistersKernel(
@@ -43,26 +43,26 @@ __global__ void ValidateCriticalRegistersKernel(
 __global__ void ImmediateMaskFollowersKernel(
     const uint32_t* match_table,
     uint32_t num_stimuli,
-    bool* thread_active_mask,           // 输出：线程激活掩码
-    uint32_t* num_active_remaining      // 输出：剩余活跃线程数
+    bool* thread_active_mask,           // Output: thread active mask
+    uint32_t* num_active_remaining      // Output: remaining active thread count
 );
 
 __global__ void MaskedSimulationKernel(
     const uint32_t* stimulus_ids,
     const bool* thread_active_mask,
     uint32_t num_stimuli
-    /* ... 其他仿真参数 ... */
+    /* ... other simulation parameters ... */
 );
 
 __global__ void ReconstructFollowerStatesKernel(
     const uint32_t* match_table,
-    const uint32_t* representative_states,  // 代表的状态
-    uint32_t* all_states,                   // 所有刺激的状态（输出）
+    const uint32_t* representative_states,  // Representative states
+    uint32_t* all_states,                   // All stimuli states (output)
     uint32_t state_size,
     uint32_t num_stimuli
 );
 
-// 主机端包装类
+// Host-side wrapper class
 class FingerprintMatcher {
 private:
     uint128_t* d_fingerprints_;
@@ -71,7 +71,7 @@ private:
     bool* d_validation_results_;
 
 public:
-    // 匹配结果结构体
+    // Match result structure
     struct MatchResult {
         std::vector<uint32_t> representatives;
         std::vector<uint32_t> match_table;
@@ -79,10 +79,10 @@ public:
         uint32_t num_active_remaining;
     };
 
-    // 初始化
+    // Initialize
     void Initialize(uint32_t max_stimuli);
 
-    // 执行匹配并立即mask
+    // Execute matching and immediate masking
     MatchResult MatchAndMask(
         const uint32_t* d_state_vectors,
         uint32_t num_stimuli,
@@ -93,10 +93,10 @@ public:
         cudaStream_t stream
     );
 
-    // 获取线程激活掩码（供后续kernel使用）
+    // Get thread active mask (for use by subsequent kernels)
     bool* GetThreadActiveMask();
 
-    // 析构函数
+    // Destructor
     ~FingerprintMatcher();
 };
 

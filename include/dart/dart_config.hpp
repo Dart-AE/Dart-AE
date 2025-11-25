@@ -16,53 +16,53 @@ struct uint128_t {
     uint64_t high;
 };
 
-// DART可调参数配置
+// DART configurable parameters
 struct DARTConfig {
-    // === 检测策略参数 ===
-    uint32_t detection_interval = 100;          // 检测间隔（周期数）
-                                                // 对于500K周期，每100周期检测一次 = 5000次检测
-                                                // 可调范围：50-500
+    // === Detection strategy parameters ===
+    uint32_t detection_interval = 100;          // Detection interval (in cycles)
+                                                // For 500K cycles, detect every 100 cycles = 5000 detections
+                                                // Tunable range: 50-500
 
-    uint32_t initial_detection_cycle = 50;      // 首次检测周期（让状态先收敛）
+    uint32_t initial_detection_cycle = 50;      // Initial detection cycle (let state converge first)
 
-    bool adaptive_detection = true;             // 自适应检测间隔
-    uint32_t min_detection_interval = 50;       // 最小检测间隔
-    uint32_t max_detection_interval = 500;      // 最大检测间隔
+    bool adaptive_detection = true;             // Adaptive detection interval
+    uint32_t min_detection_interval = 50;       // Minimum detection interval
+    uint32_t max_detection_interval = 500;      // Maximum detection interval
 
-    uint32_t num_detection_nodes = 3;           // 使用的检测节点数量（1-5）
+    uint32_t num_detection_nodes = 3;           // Number of detection nodes to use (1-5)
 
-    // === 合并策略参数 ===
-    uint32_t min_merge_count = 16;              // 触发重组的最小合并数
-                                                // 需要累积足够的合并才值得重组
+    // === Merge strategy parameters ===
+    uint32_t min_merge_count = 16;              // Minimum merge count to trigger reorganization
+                                                // Need to accumulate enough merges to justify reorganization
 
-    float merge_accumulation_threshold = 0.3f;  // 累积合并率阈值
-                                                // 当前活跃刺激的30%被合并时考虑重组
+    float merge_accumulation_threshold = 0.3f;  // Accumulated merge rate threshold
+                                                // Consider reorganization when 30% of active stimuli are merged
 
-    // === Warp重组参数 ===
+    // === Warp reorganization parameters ===
     uint32_t warp_size = 32;
-    uint32_t min_warp_utilization = 16;         // 最小warp利用率
+    uint32_t min_warp_utilization = 16;         // Minimum warp utilization
 
-    float roi_threshold = 2.0f;                  // ROI阈值，触发重组的最小ROI
-                                                // 2.0表示收益至少是开销的2倍
-                                                // 可调范围：1.5-3.0
+    float roi_threshold = 2.0f;                  // ROI threshold, minimum ROI to trigger reorganization
+                                                // 2.0 means benefit must be at least 2x the overhead
+                                                // Tunable range: 1.5-3.0
 
-    float reorganization_overhead_cycles = 50.0f; // 重组开销（等效周期数）
-                                                 // 用于ROI计算
+    float reorganization_overhead_cycles = 50.0f; // Reorganization overhead (in equivalent cycles)
+                                                 // Used for ROI calculation
 
-    bool enable_path_sorting = true;            // 是否启用PathSig排序
-    bool track_branch_history = true;           // 是否追踪分支历史
+    bool enable_path_sorting = true;            // Whether to enable PathSig sorting
+    bool track_branch_history = true;           // Whether to track branch history
 
-    // === 执行策略参数 ===
-    bool immediate_masking = true;              // 立即mask followers（不等重组）
-    bool enable_batch_overlap = true;           // 启用批次重叠执行
+    // === Execution strategy parameters ===
+    bool immediate_masking = true;              // Immediately mask followers (don't wait for reorganization)
+    bool enable_batch_overlap = true;           // Enable batch overlapping execution
 
-    // === 调试参数 ===
-    bool verbose = false;                       // 详细输出
-    bool debug_fingerprint = false;             // 调试指纹匹配
-    bool debug_reorganization = false;          // 调试重组过程
-    bool print_detection_stats = false;         // 打印每次检测的统计
+    // === Debug parameters ===
+    bool verbose = false;                       // Verbose output
+    bool debug_fingerprint = false;             // Debug fingerprint matching
+    bool debug_reorganization = false;          // Debug reorganization process
+    bool print_detection_stats = false;         // Print statistics for each detection
 
-    // 从命令行参数加载
+    // Load from command line arguments
     void LoadFromCommandLine(int argc, char** argv) {
         for (int i = 1; i < argc; i++) {
             std::string arg = argv[i];
@@ -91,104 +91,104 @@ struct DARTConfig {
         }
     }
 
-    // 打印配置
+    // Print configuration
     void Print() const {
-        std::cout << "\n=== DART配置 ===\n";
-        std::cout << "检测间隔: " << detection_interval << " 周期\n";
-        std::cout << "ROI阈值: " << roi_threshold << "\n";
-        std::cout << "检测节点数: " << num_detection_nodes << "\n";
-        std::cout << "最小合并数: " << min_merge_count << "\n";
-        std::cout << "立即masking: " << (immediate_masking ? "启用" : "禁用") << "\n";
-        std::cout << "自适应检测: " << (adaptive_detection ? "启用" : "禁用") << "\n";
-        std::cout << "PathSig排序: " << (enable_path_sorting ? "启用" : "禁用") << "\n";
+        std::cout << "\n=== DART Configuration ===\n";
+        std::cout << "Detection interval: " << detection_interval << " cycles\n";
+        std::cout << "ROI threshold: " << roi_threshold << "\n";
+        std::cout << "Detection nodes: " << num_detection_nodes << "\n";
+        std::cout << "Minimum merge count: " << min_merge_count << "\n";
+        std::cout << "Immediate masking: " << (immediate_masking ? "Enabled" : "Disabled") << "\n";
+        std::cout << "Adaptive detection: " << (adaptive_detection ? "Enabled" : "Disabled") << "\n";
+        std::cout << "PathSig sorting: " << (enable_path_sorting ? "Enabled" : "Disabled") << "\n";
     }
 };
 
-// DAG节点元数据（§4.1）
+// DAG node metadata (§4.1)
 struct DAGNodeMetadata {
     uint32_t node_id;
-    uint32_t topological_level;     // 拓扑层级
-    float    convergence_score;      // 收敛得分 Score(v)
+    uint32_t topological_level;     // Topological level
+    float    convergence_score;      // Convergence score Score(v)
     uint32_t fanout;
     uint32_t critical_reg_count;
     std::vector<uint32_t> critical_regs;  // R_critical
 };
 
-// 路径签名特征集 (PS) - 编译时预计算（§4.1 & §4.3）
+// Path signature feature set (PS) - precomputed at compile time (§4.1 & §4.3)
 struct PathSignatureFeatures {
-    uint32_t node_id;                           // 节点ID
+    uint32_t node_id;                           // Node ID
 
-    // P(v): 前驱节点签名
+    // P(v): predecessor node signatures
     uint32_t num_predecessors;
-    uint64_t predecessor_signatures[32];        // 固定大小数组便于GPU访问
+    uint64_t predecessor_signatures[32];        // Fixed-size array for GPU access
 
-    // L(v): 拓扑层级标识符
+    // L(v): topological level identifier
     uint32_t topological_level;
 
-    // 控制流节点（用于H(si)的构建）
+    // Control flow nodes (for H(si) construction)
     uint32_t num_control_flow_nodes;
-    uint32_t control_flow_node_ids[16];         // 影响控制流的节点
+    uint32_t control_flow_node_ids[16];         // Nodes affecting control flow
 
-    // 预计算的哈希组件（优化）
-    uint64_t level_hash;                        // 层级的预哈希值
-    uint64_t predecessors_combined_hash;        // 所有前驱的组合哈希
+    // Precomputed hash components (optimization)
+    uint64_t level_hash;                        // Pre-hashed level value
+    uint64_t predecessors_combined_hash;        // Combined hash of all predecessors
 };
 
-// 运行时路径签名（§4.3 Equation 4）
+// Runtime path signature (§4.3 Equation 4)
 struct RuntimePathSignature {
     uint64_t signature;         // PathSig(v, si) = Hash(P(v), L(v), H(si))
-    uint32_t stimulus_id;       // 刺激ID
-    uint32_t detection_node;    // 检测节点ID
-    uint32_t original_warp_id;  // 原始warp ID（用于重组前后对比）
+    uint32_t stimulus_id;       // Stimulus ID
+    uint32_t detection_node;    // Detection node ID
+    uint32_t original_warp_id;  // Original warp ID (for before/after comparison)
 };
 
-// 分支历史记录 H(si) - 运行时动态构建
+// Branch history record H(si) - dynamically built at runtime
 struct BranchHistory {
     uint32_t stimulus_id;
-    uint32_t history_bits;      // 位向量，每位记录一个分支选择
-    uint32_t num_branches;      // 记录的分支数量
+    uint32_t history_bits;      // Bit vector, each bit records a branch choice
+    uint32_t num_branches;      // Number of recorded branches
 
-    // 可选：详细的分支记录（调试用）
+    // Optional: detailed branch record (for debugging)
     struct BranchRecord {
         uint32_t node_id;
         uint32_t cycle;
         bool taken;
     };
-    std::vector<BranchRecord> detailed_history;  // 仅在调试模式启用
+    std::vector<BranchRecord> detailed_history;  // Only enabled in debug mode
 };
 
-// 检测节点配置
+// Detection node configuration
 struct DetectionNode {
     uint32_t node_id;
-    float    score;                  // 综合评分
+    float    score;                  // Comprehensive score
     uint32_t level;
     std::vector<uint32_t> input_ports;
-    std::vector<uint32_t> critical_inputs;  // 筛选后的关键输入
+    std::vector<uint32_t> critical_inputs;  // Filtered critical inputs
 };
 
-// 指纹结构（§4.2）
+// Fingerprint structure (§4.2)
 struct Fingerprint {
-    uint128_t hash;                  // 128位指纹
+    uint128_t hash;                  // 128-bit fingerprint
     uint32_t  detection_node;
     uint32_t  stimulus_id;
 };
 
-// 刺激合并记录
+// Stimulus merge record
 struct MergeRecord {
-    uint32_t representative_id;      // 代表刺激ID
-    std::vector<uint32_t> follower_ids;  // 追随者ID列表
-    uint32_t merge_cycle;            // 合并发生的周期
+    uint32_t representative_id;      // Representative stimulus ID
+    std::vector<uint32_t> follower_ids;  // Follower ID list
+    uint32_t merge_cycle;            // Cycle when merge occurred
     uint32_t detection_node;
-    uint64_t path_signature;         // 代表的路径签名
+    uint64_t path_signature;         // Representative's path signature
 };
 
-// 累积合并状态（在多次检测间累积）
+// Accumulated merge state (accumulated across multiple detections)
 struct AccumulatedMergeState {
     std::unordered_map<uint32_t, uint32_t> representative_map; // follower -> representative
     std::unordered_map<uint32_t, std::vector<uint32_t>> follower_groups; // representative -> followers
 
-    uint32_t total_merged = 0;       // 累积合并的刺激数
-    uint32_t num_representatives = 0; // 当前代表数量
+    uint32_t total_merged = 0;       // Accumulated merged stimuli count
+    uint32_t num_representatives = 0; // Current representative count
 
     void Clear() {
         representative_map.clear();
@@ -202,29 +202,29 @@ struct AccumulatedMergeState {
     }
 };
 
-// DART运行时统计
+// DART runtime statistics
 struct DARTStats {
     uint64_t total_stimuli;
     uint64_t merged_stimuli;
     uint64_t reorganization_count;
-    uint64_t detection_count;               // 总检测次数
-    uint64_t immediate_masked_count;        // 立即masked的follower数
+    uint64_t detection_count;               // Total detection count
+    uint64_t immediate_masked_count;        // Immediately masked follower count
 
     double   detection_time_ms;
     double   merging_time_ms;
     double   reorganization_time_ms;
-    double   path_sig_computation_ms;       // PathSig计算时间
-    double   sorting_time_ms;               // 排序时间
-    double   masking_time_ms;               // Masking时间
+    double   path_sig_computation_ms;       // PathSig computation time
+    double   sorting_time_ms;               // Sorting time
+    double   masking_time_ms;               // Masking time
     double   total_time_ms;
 
-    // PathSig相关统计
-    uint32_t num_path_sig_groups;           // LSH分组数量
-    float    avg_group_size;                // 平均每组大小
+    // PathSig related statistics
+    uint32_t num_path_sig_groups;           // LSH group count
+    float    avg_group_size;                // Average group size
 
-    // 检测间隔自适应统计
-    std::vector<uint32_t> detection_intervals_history;  // 历史检测间隔
-    std::vector<float> redundancy_history;              // 历史冗余率
+    // Detection interval adaptive statistics
+    std::vector<uint32_t> detection_intervals_history;  // Historical detection intervals
+    std::vector<float> redundancy_history;              // Historical redundancy rates
 
     float GetRedundancyRatio() const {
         return (float)merged_stimuli / total_stimuli;

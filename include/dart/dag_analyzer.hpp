@@ -15,7 +15,7 @@ struct DetectionNode;
 struct PathSignatureFeatures;
 struct uint128_t;
 
-// 节点类型枚举
+// Node type enumeration
 enum class NodeType {
     INPUT,
     OUTPUT,
@@ -29,14 +29,14 @@ enum class NodeType {
     UNKNOWN
 };
 
-// 节点结构
+// Node structure
 struct Node {
     uint32_t id;
     NodeType type;
     bool affects_control_flow;
 };
 
-// 电路接口（简化版，实际实现可能在其他地方）
+// Circuit interface (simplified version, actual implementation may be elsewhere)
 class Circuit {
 public:
     virtual ~Circuit() = default;
@@ -51,35 +51,35 @@ public:
     virtual uint32_t GetMaxLevel() const = 0;
 };
 
-// DAG分析器类
+// DAG analyzer class
 class DAGAnalyzer {
 private:
     const Circuit& circuit_;
     std::vector<DAGNodeMetadata> node_metadata_;
 
-    // 辅助函数
+    // Helper functions
     float GetTypeWeight(NodeType type);
     uint64_t HashNode(const Node& node);
 
 public:
     explicit DAGAnalyzer(const Circuit& circuit);
 
-    // 拓扑层级计算（Equation 2中的L(v)）
+    // Topological level computation (L(v) in Equation 2)
     void ComputeTopologicalLevels();
 
-    // 计算检测节点得分（Equation 1）
+    // Compute detection node score (Equation 1)
     float ComputeScore(uint32_t node_id);
 
-    // 选择最优检测节点
+    // Select optimal detection nodes
     std::vector<DetectionNode> SelectDetectionNodes(size_t count = 3);
 
-    // 关键寄存器识别（反向数据流追踪）
+    // Critical register identification (backward dataflow tracing)
     std::vector<uint32_t> ExtractCriticalRegisters(uint32_t node_id);
 
-    // 路径签名特征集(PS)预计算 - 编译时构建
+    // Path signature feature set (PS) precomputation - built at compile time
     std::unordered_map<uint32_t, PathSignatureFeatures> BuildPathSignatureDataset();
 
-    // 提取影响控制流的节点
+    // Extract nodes affecting control flow
     std::vector<uint32_t> ExtractControlFlowNodes(uint32_t node_id);
 };
 
