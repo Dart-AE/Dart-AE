@@ -44,19 +44,31 @@ message(STATUS "  GPU_THREADS: ${GPU_THREADS}")
 message(STATUS "════════════════════════════════════════════════")
 message(STATUS "")
 
-# DAG analysis module
+# DAG analysis module (C++)
 set(DAG_ANALYSIS_SOURCES
-    src/dart/dag_analysis/dag_analyzer.cpp
+    src/dag_analyzer.cpp
+    src/topological_analyzer.cpp
+    src/critical_path.cpp
 )
 
 # Fingerprint matching engine module (CUDA)
 set(MATCHING_ENGINE_SOURCES
-    src/dart/matching_engine/fingerprint.cu
+    src/fingerprint.cu
+    src/stimulus_merger.cu
+    src/hash_table.cu
 )
 
 # Execution management module (CUDA)
 set(EXECUTION_MGMT_SOURCES
-    src/dart/execution_mgmt/warp_reorganizer.cu
+    src/warp_reorganizer.cu
+    src/batch_overlapper.cu
+    src/state_reconstructor.cu
+)
+
+# Runtime management module (C++)
+set(RUNTIME_SOURCES
+    src/runtime_manager.cpp
+    src/utils.cpp
 )
 
 # Combine all source files
@@ -64,6 +76,7 @@ set(DART_SOURCES
     ${DAG_ANALYSIS_SOURCES}
     ${MATCHING_ENGINE_SOURCES}
     ${EXECUTION_MGMT_SOURCES}
+    ${RUNTIME_SOURCES}
 )
 
 # Create DART static library

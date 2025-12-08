@@ -1,6 +1,6 @@
-// src/dart/dag_analysis/dag_analyzer.cpp
-#include "dart/dag_analyzer.hpp"
-#include "dart/dart_config.hpp"
+// src/dag_analyzer.cpp
+#include "dag_analyzer.hpp"
+#include "dart_config.hpp"
 #include <queue>
 #include <cmath>
 #include <algorithm>

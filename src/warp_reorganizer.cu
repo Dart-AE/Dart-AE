@@ -1,4 +1,4 @@
-#include "dart/execution_manager.hpp"
+#include "execution_manager.hpp"
 #include <thrust/device_vector.h>
 #include <thrust/sort.h>
 #include <thrust/copy.h>
